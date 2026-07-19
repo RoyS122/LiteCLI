@@ -14,26 +14,39 @@ func NewApp(name, description, version string, rootCmd *Command) *App {
 	}
 }
 
+func (a *App) AddCommand(cmd *Command) {
+	a.Commands = append(a.Commands, cmd)
+}
 func (a *App) Run() {
-	if a.RootCmd == nil {
-		fmt.Println("Error: no root command defined for this app")
-		os.Exit(1)
-	}
+	args := os.Args[1:]
 
-	// Intercept de base pour le help universel ou la version
-	if len(os.Args) > 1 {
-		arg := os.Args[1]
-		if arg == "--help" || arg == "-h" {
-			a.RootCmd.PrintHelp(a.Name)
+	if len(args) > 0 {
+		if args[0] == "--help" || args[0] == "-h" {
+			a.PrintGlobalHelp()
 			return
 		}
-		if arg == "--version" || arg == "-v" {
+		if args[0] == "--version" || args[0] == "-v" {
 			fmt.Printf("%s version %s\n", a.Name, a.Version)
 			return
 		}
+
+		for _, cmd := range a.Commands {
+
+			if cmd.Use == args[0] {
+
+				os.Args = os.Args[1:]
+				cmd.Execute()
+				return
+			}
+		}
 	}
 
-	a.RootCmd.Execute()
+	if a.RootCmd != nil {
+		a.RootCmd.Execute()
+	} else {
+		fmt.Printf("Error: unknown command %q\nRun '%s --help' for usage.\n", args[0], a.Name)
+		os.Exit(1)
+	}
 }
 
 func (c *Command) PrintHelp(appName string) {
@@ -57,4 +70,18 @@ func (c *Command) PrintHelp(appName string) {
 		}
 		fmt.Println()
 	}
+}
+
+func (a *App) PrintGlobalHelp() {
+	fmt.Printf("%s - %s\n\n", a.Name, a.Description)
+	fmt.Printf("Usage:\n  %s [command] [flags]\n\n", a.Name)
+
+	if len(a.Commands) > 0 {
+		fmt.Println("Available Commands:")
+		for _, cmd := range a.Commands {
+			fmt.Printf("  %-12s %s\n", cmd.Use, cmd.Short)
+		}
+		fmt.Println()
+	}
+	fmt.Printf("Use \"%s [command] --help\" for more information about a command.\n", a.Name)
 }

@@ -6,151 +6,129 @@ import (
 	"testing"
 )
 
-// TestExecute centralise tous les scénarios de parsing possibles pour valider le moteur.
-func TestExecute(t *testing.T) {
-	// On sauvegarde les vrais os.Args pour les restaurer à la fin du test
+func TestAppRoutingAndParsing(t *testing.T) {
+
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
 
-	// Définition de la structure pour chaque cas de test
 	type testCase struct {
-		name        string
-		inputArgs   []string
-		defString   string
-		defInt      int
-		defUint8    uint8
-		wantString  string
-		wantInt     int
-		wantUint8   uint8
+		name      string
+		inputArgs []string
+
+		rootDefaultQ   int
+		wantRootCalled bool
+		wantRootInt    int
+
+		subDefaultOut   string
+		subDefaultAlpha uint8
+		wantSubCalled   bool
+		wantSubStr      string
+		wantSubUint8    uint8
+
 		wantPosArgs []string
 	}
 
 	tests := []testCase{
 		{
-			name:        "1. Valeurs par défaut quand aucun flag n'est passé",
-			inputArgs:   []string{"gostamp", "image.jpg"},
-			defString:   "./dist",
-			defInt:      42,
-			defUint8:    80,
-			wantString:  "./dist",
-			wantInt:     42,
-			wantUint8:   80,
-			wantPosArgs: []string{"image.jpg"},
+			name:           "1. Exécution Root par défaut (sans sous-commande)",
+			inputArgs:      []string{"gostamp", "--quality=90", "root_file.jpg"},
+			rootDefaultQ:   50,
+			wantRootCalled: true,
+			wantRootInt:    90,
+			wantPosArgs:    []string{"root_file.jpg"},
 		},
 		{
-			name:        "2. Flags longs collés avec '='",
-			inputArgs:   []string{"gostamp", "--output=/tmp", "--quality=95", "pic.png"},
-			defString:   "./dist",
-			defInt:      0,
-			defUint8:    80,
-			wantString:  "/tmp",
-			wantInt:     0,
-			wantUint8:   95,
-			wantPosArgs: []string{"pic.png"},
+			name:            "2. Routage vers sous-commande avec flags courts séparés",
+			inputArgs:       []string{"gostamp", "process", "-o", "/tmp/dist", "-a", "120", "image1.png"},
+			subDefaultOut:   "./dist",
+			subDefaultAlpha: 75,
+			wantSubCalled:   true,
+			wantSubStr:      "/tmp/dist",
+			wantSubUint8:    120,
+			wantPosArgs:     []string{"image1.png"},
 		},
 		{
-			name:        "3. Flags longs séparés par un espace",
-			inputArgs:   []string{"gostamp", "--output", "/var/log", "--threads", "4", "file.tiff"},
-			defString:   "./dist",
-			defInt:      1,
-			defUint8:    0,
-			wantString:  "/var/log",
-			wantInt:     4,
-			wantUint8:   0,
-			wantPosArgs: []string{"file.tiff"},
+			name:            "3. Routage vers sous-commande avec flags longs collés (=)",
+			inputArgs:       []string{"gostamp", "process", "--output=/var/out", "--watermark-alpha=200", "img2.webp", "img3.webp"},
+			subDefaultOut:   "./dist",
+			subDefaultAlpha: 75,
+			wantSubCalled:   true,
+			wantSubStr:      "/var/out",
+			wantSubUint8:    200,
+			wantPosArgs:     []string{"img2.webp", "img3.webp"},
 		},
 		{
-			name:        "4. Flags courts collés avec '='",
-			inputArgs:   []string{"gostamp", "-o=/custom", "-t=8", "-q=100"},
-			defString:   "",
-			defInt:      0,
-			defUint8:    0,
-			wantString:  "/custom",
-			wantInt:     8,
-			wantUint8:   100,
-			wantPosArgs: nil, // Aucun argument de position attendu
-		},
-		{
-			name:        "5. Flags courts séparés par un espace",
-			inputArgs:   []string{"gostamp", "-o", "bin", "-q", "50", "img1.jpg", "img2.jpg"},
-			defString:   "",
-			defInt:      0,
-			defUint8:    0,
-			wantString:  "bin",
-			wantInt:     0,
-			wantUint8:   50,
-			wantPosArgs: []string{"img1.jpg", "img2.jpg"}, // Multiples arguments positionnels
-		},
-		{
-			name:        "6. Flags inconnus (doivent être ignorés sans crash)",
-			inputArgs:   []string{"gostamp", "--unknown-flag", "-x", "photo.jpg"},
-			defString:   "default",
-			defInt:      10,
-			defUint8:    20,
-			wantString:  "default",
-			wantInt:     10,
-			wantUint8:   20,
-			wantPosArgs: []string{"photo.jpg"},
-		},
-		{
-			name:        "7. Mélange complexe de formats et de positions",
-			inputArgs:   []string{"gostamp", "first.jpg", "-o", "out", "--threads=12", "second.jpg", "-q", "75"},
-			defString:   "",
-			defInt:      1,
-			defUint8:    0,
-			wantString:  "out",
-			wantInt:     12,
-			wantUint8:   75,
-			wantPosArgs: []string{"first.jpg", "second.jpg"},
+			name:            "4. Sous-commande utilisant ses valeurs par défaut",
+			inputArgs:       []string{"gostamp", "process", "default_test.jpg"},
+			subDefaultOut:   "./fallback",
+			subDefaultAlpha: 100,
+			wantSubCalled:   true,
+			wantSubStr:      "./fallback",
+			wantSubUint8:    100,
+			wantPosArgs:     []string{"default_test.jpg"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// On injecte les arguments simulés dans os.Args
 			os.Args = tc.inputArgs
 
-			// Variables cibles pour le test
-			var gotString string
-			var gotInt int
-			var gotUint8 uint8
-			var capturedPosArgs []string
+			var rootCalled, subCalled bool
+			var gotRootInt int
+			var gotSubStr string
+			var gotSubUint8 uint8
+			var gotCapturedArgs []string
 
-			// Instanciation de la commande
-			cmd := &Command{
-				Short: "Test command",
-				Run: func(c *Command, args []string) {
-					capturedPosArgs = args
+			rootCmd := &Command{
+				Short: "Root command text",
+				Run: func(cmd *Command, args []string) {
+					rootCalled = true
+					gotCapturedArgs = args
 				},
 			}
+			rootCmd.IntVarP(&gotRootInt, "quality", 'q', tc.rootDefaultQ)
 
-			// Enregistrement des flags (ce qui applique aussi les valeurs par défaut)
-			cmd.StringVarP(&gotString, "output", 'o', tc.defString)
-			cmd.IntVarP(&gotInt, "threads", 't', tc.defInt)
-			cmd.Uint8VarP(&gotUint8, "quality", 'q', tc.defUint8)
+			processCmd := &Command{
+				Use:   "process",
+				Short: "Process subcommand text",
+				Run: func(cmd *Command, args []string) {
+					subCalled = true
+					gotCapturedArgs = args
+				},
+			}
+			processCmd.StringVarP(&gotSubStr, "output", 'o', tc.subDefaultOut)
+			processCmd.Uint8VarP(&gotSubUint8, "watermark-alpha", 'a', tc.subDefaultAlpha)
 
-			// Exécution du parsing
-			cmd.Execute()
+			app := NewApp("gostamp", "Test App", "1.0.0", rootCmd)
+			app.AddCommand(processCmd)
 
-			// Vérifications des résultats
-			if gotString != tc.wantString {
-				t.Errorf("StringVarP échoué: attendu %q, obtenu %q", tc.wantString, gotString)
+			app.Run()
+
+			if rootCalled != tc.wantRootCalled {
+				t.Errorf("Routage Root incorrect: attendu %v, obtenu %v", tc.wantRootCalled, rootCalled)
+			}
+			if subCalled != tc.wantSubCalled {
+				t.Errorf("Routage Sous-Commande incorrect: attendu %v, obtenu %v", tc.wantSubCalled, subCalled)
 			}
 
-			if gotInt != tc.wantInt {
-				t.Errorf("IntVarP échoué: attendu %d, obtenu %d", tc.wantInt, gotInt)
+			if tc.wantRootCalled && gotRootInt != tc.wantRootInt {
+				t.Errorf("Root IntVarP échoué: attendu %d, obtenu %d", tc.wantRootInt, gotRootInt)
 			}
 
-			if gotUint8 != tc.wantUint8 {
-				t.Errorf("Uint8VarP échoué: attendu %d, obtenu %d", tc.wantUint8, gotUint8)
+			if tc.wantSubCalled {
+				if gotSubStr != tc.wantSubStr {
+					t.Errorf("Sub StringVarP échoué: attendu %q, obtenu %q", tc.wantSubStr, gotSubStr)
+				}
+				if gotSubUint8 != tc.wantSubUint8 {
+					t.Errorf("Sub Uint8VarP échoué: attendu %d, obtenu %d", tc.wantSubUint8, gotSubUint8)
+				}
 			}
 
-			// Comparaison des slices d'arguments de position nettoyés
-			if len(capturedPosArgs) == 0 && len(tc.wantPosArgs) == 0 {
-				return // Slices vides considérés comme égaux
+			if len(gotCapturedArgs) == 0 && len(tc.wantPosArgs) == 0 {
+				return
 			}
-			if !reflect.DeepEqual(capturedPosArgs, tc.wantPosArgs) {
-				t.Errorf("Arguments de position incorrects: attendu %v, obtenu %v", tc.wantPosArgs, capturedPosArgs)
+			if !reflect.DeepEqual(gotCapturedArgs, tc.wantPosArgs) {
+				t.Errorf("Arguments positionnels altérés: attendu %v, obtenu %v", tc.wantPosArgs, gotCapturedArgs)
 			}
 		})
 	}

@@ -22,6 +22,7 @@ type App struct {
 	Description string
 	Version     string
 	RootCmd     *Command
+	Commands    []*Command
 }
 
 type FlagList []Flag
