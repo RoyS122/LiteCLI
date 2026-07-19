@@ -35,6 +35,10 @@ func (c *Command) Execute() {
 				put(&c.Flags[flagIndex], argSplited[1])
 				continue
 			}
+			if c.Flags[flagIndex].Type == BOOL {
+				put(&c.Flags[flagIndex], "1")
+				continue
+			}
 			startedFlag = flagIndex
 			continue
 		}
@@ -73,6 +77,30 @@ func put(f *Flag, value string) {
 		}
 		*target = uint8(v)
 
+	case *uint64:
+		v, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			fmt.Println("Put case UINT64:", err)
+			return
+		}
+		*target = v
+
+	case *float64:
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			fmt.Println("Put case FLOAT64:", err)
+			return
+		}
+		*target = v
+
+	case *bool:
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			fmt.Println("Put case BOOL:", err)
+			return
+		}
+		*target = v
+
 	default:
 		fmt.Printf("Put: type de target non supporté (%T)\n", f.Target)
 	}
@@ -98,15 +126,45 @@ func (c *Command) checkFlagShort(flagRune rune) int {
 
 func (c *Command) StringVarP(s *string, flagFull string, flagRune rune, defaultValue string) {
 	*s = defaultValue
-	c.Flags = append(c.Flags, Flag{Target: s, Name: flagFull, Short: flagRune, DefaultValue: defaultValue, Type: 0})
+	c.Flags = append(c.Flags, Flag{Target: s, Name: flagFull, Short: flagRune, DefaultValue: defaultValue, Type: STRING})
 }
 
 func (c *Command) IntVarP(i *int, flagFull string, flagRune rune, defaultValue int) {
 	*i = defaultValue
-	c.Flags = append(c.Flags, Flag{Target: i, Name: flagFull, Short: flagRune, DefaultValue: strconv.Itoa(defaultValue), Type: 1})
+	c.Flags = append(c.Flags, Flag{Target: i, Name: flagFull, Short: flagRune, DefaultValue: strconv.Itoa(defaultValue), Type: INT})
 }
 
 func (c *Command) Uint8VarP(ui *uint8, flagFull string, flagRune rune, defaultValue uint8) {
 	*ui = defaultValue
-	c.Flags = append(c.Flags, Flag{Target: ui, Name: flagFull, Short: flagRune, DefaultValue: strconv.FormatUint(uint64(defaultValue), 10), Type: 2})
+	c.Flags = append(c.Flags, Flag{Target: ui, Name: flagFull, Short: flagRune, DefaultValue: strconv.FormatUint(uint64(defaultValue), 10), Type: UINT8})
+}
+
+func (c *Command) Uint64VarP(ui *uint64, flagFull string, flagRune rune, defaultValue uint64) {
+	*ui = defaultValue
+	c.Flags = append(c.Flags, Flag{Target: ui, Name: flagFull, Short: flagRune, DefaultValue: strconv.FormatUint(uint64(defaultValue), 10), Type: UINT64})
+}
+
+func (c *Command) Float64VarP(i *float64, flagFull string, flagRune rune, defaultValue float64) {
+	*i = defaultValue
+	strDefault := strconv.FormatFloat(defaultValue, 'f', -1, 64)
+
+	c.Flags = append(c.Flags, Flag{
+		Target:       i,
+		Name:         flagFull,
+		Short:        flagRune,
+		DefaultValue: strDefault,
+		Type:         FLOAT,
+	})
+}
+
+func (c *Command) BoolVarP(i *bool, flagFull string, flagRune rune, defaultValue bool) {
+	*i = defaultValue
+
+	c.Flags = append(c.Flags, Flag{
+		Target:       i,
+		Name:         flagFull,
+		Short:        flagRune,
+		DefaultValue: strconv.FormatBool(defaultValue),
+		Type:         BOOL,
+	})
 }

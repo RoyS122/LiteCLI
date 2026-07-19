@@ -31,4 +31,7 @@ const (
 	STRING = iota
 	INT
 	UINT8
+	UINT64
+	FLOAT
+	BOOL
 )

@@ -16,6 +16,21 @@ With `LiteCLI`, your final binaries shrink significantly while maintaining a smo
 
 ---
 
+## Supported Flag Types
+
+`LiteCLI` handles direct pointer binding for the following standard Go types:
+
+| Method | Go Type | CLI Syntax Example |
+| --- | --- | --- |
+| `StringVarP` | `string` | `--output="./dist"` or `-o "./dist"` |
+| `IntVarP` | `int` | `--quality=80` or `-q 80` |
+| `Uint8VarP` | `uint8` | `--workers=4` or `-w 4` |
+| `Uint64VarP` | `uint64` | `--max-size=5000000000` |
+| `Float64VarP` | `float64` | `--ratio=1.5` or `-r 1.5` |
+| `BoolVarP` | `bool` | `--verbose` or `-v` *(boolean switch, no value required)* |
+
+---
+
 ## Installation
 
 Add `LiteCLI` to your Go project:
